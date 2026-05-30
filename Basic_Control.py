@@ -13,7 +13,7 @@ JOINTS = [BASE, SHOULDER, ELBOW, WRIST, CLAW]
 # 1 2 3 6 5 4
 JARS = [680, 1030, 1380, 2500, 2110, 1730]
 
-#Time to spend in each jar
+#Time to spend in each jar in seconds
 TIMES = [1, 1, 1, 1, 1, 1]
 
 #Cycle Iterations
@@ -27,10 +27,10 @@ WRIST_CENTER = 700
 CLAW_CENTER = 1500
 
 # All max and min values for servos when all other servos are centered
-BASE_MIN, BASE_MAX = 500, 2500
-SHOULDER_MIN, SHOULDER_MAX = 1250, 1800
-ELBOW_MIN, ELBOW_MAX = 1950, 2150 # The elbow gets erratic very quickly
-WRIST_MIN, WRIST_MAX = 500, 1500
+BASE_MIN, BASE_MAX = 500, 2500 # MIN=Left, MAX=Right
+SHOULDER_MIN, SHOULDER_MAX = 1250, 1800 # MIN=Down, MAX=Up
+ELBOW_MIN, ELBOW_MAX = 1950, 2150 # MIN=Up, MAX=Down
+WRIST_MIN, WRIST_MAX = 500, 1500 # MIN=Down, MAX=Up
 CLAW_MIN, CLAW_MAX = 1100, 1400 # Fully open and closed positions
 
 class BasicControl:
@@ -38,6 +38,7 @@ class BasicControl:
     self.centers = [BASE_CENTER, SHOULDER_CENTER, ELBOW_CENTER, WRIST_CENTER, CLAW_CENTER]
     self.ssc = serial.Serial('COM5', 9600)
 
+  # Defines the entire sequence that the robot arm will follow for the procedure
   def sequence(self):
     self.load()
 
@@ -53,14 +54,16 @@ class BasicControl:
 
     self.ssc.close()
 
+  # Resets all servo postions to center
   def center(self):
     for joint in JOINTS:
-      self.ssc.write(bytes(f"#{joint}P{self.centers[joint]} T1000\r", encoding='utf8'))
-    time.sleep(2)
+      self.write_position(self.centers[joint], joint)
 
   def close_claw(self):
     self.write_position(CLAW_MAX, CLAW)
 
+  # Completes one cycle of the procedure. 
+  # If half is True, then perform the first half
   def cycle(self, half : bool):
     print(f"Cycling with Half = {half}...")
     cycle_jars, cycle_times = JARS, TIMES
@@ -71,6 +74,7 @@ class BasicControl:
       self.dip(jar, dip_time=t)
     print(f"Cycle Complete")
 
+  # Move to the specified jar, dip for dip_time
   def dip(self, jar : int, dip_time : int):
     self.raise_arm()
     self.write_position(jar, BASE)
@@ -79,12 +83,14 @@ class BasicControl:
     time.sleep(dip_time)
     print("Dip Complete")
 
+  # Hang slide over center of setup indefinitely
   def dry(self):
     print("Drying...")
     self.raise_arm()
     self.write_position(BASE_CENTER, BASE)
     print("Dry Complete")
 
+  # Allow user to load slide to claw
   def load(self):
     print("Beginning load sequence...")
     self.center()
@@ -106,6 +112,7 @@ class BasicControl:
     self.write_position(ELBOW_MIN, ELBOW)
     self.write_position(SHOULDER_MAX, SHOULDER)
 
+  # Writes the position to move the specified joint to
   def write_position(self, servo_position : int, joint : int):
     self.ssc.write(bytes(f"#{joint}P{servo_position} T1000\r", encoding='utf8'))
     time.sleep(2)
